@@ -7,7 +7,7 @@
  * persistent visibility while scrolling page content.
  */
 
-import { useLocation } from "react-router-dom";
+import { useLocation, Link } from "react-router-dom";
 import { useAuth } from "../contexts/AuthContext";
 import {
   MdDashboard,
@@ -67,14 +67,14 @@ function Sidebar({ role }) {
         {links.map((link, index) => {
           const IconComponent = link.icon;
           return (
-            <a
+            <Link
               key={index}
-              href={link.path}
+              to={link.path}
               className={`nav-link ${location.pathname === link.path ? "active" : ""}`}
             >
               <IconComponent className="nav-icon" />
               <span className="nav-text">{link.name}</span>
-            </a>
+            </Link>
           );
         })}
       </nav>
