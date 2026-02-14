@@ -1,3 +1,5 @@
+// ESLint configuration for ConstructFlow
+// Enforces code quality rules for JavaScript and React, including hooks usage and refresh guidelines
 import js from '@eslint/js'
 import globals from 'globals'
 import reactHooks from 'eslint-plugin-react-hooks'
