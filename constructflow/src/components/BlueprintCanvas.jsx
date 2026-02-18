@@ -5,17 +5,14 @@ import "../styles/BlueprintCanvas.css";
 /**
  * BlueprintCanvas
  *
- * Renders a blueprint image with a perfectly-aligned SVG overlay.
- * The SVG coordinate space is locked to the natural pixel dimensions of the image,
- * so paths are always positioned correctly regardless of zoom, window size, or
- * whether the image is loading/loaded.
+ * SVG overlay is pixel-locked to the rendered image via getBoundingClientRect +
+ * ResizeObserver. Coordinates are stored in natural-image-pixel space so they
+ * are stable across zoom / resize.
  *
- * Key technique:
- *   - We wait for the <img> to load and read its naturalWidth/naturalHeight.
- *   - We set the SVG viewBox to "0 0 naturalWidth naturalHeight".
- *   - The SVG is absolutely positioned to cover exactly the rendered image rect
- *     (which may be smaller than the container due to object-fit: contain).
- *   - A ResizeObserver watches the container so the overlay stays in sync on resize.
+ * Modes:
+ *   drawing  — activeObjectId is set; clicks add points, double-click finishes
+ *   dragging — selectedObjectId is set and user mousedowns on a finished path;
+ *              the whole path translates without changing its shape
  */
 function BlueprintCanvas({
   imageUrl,
@@ -26,37 +23,40 @@ function BlueprintCanvas({
   onObjectSelected,
   selectedObjectId,
 }) {
+  // ── Drawing state ─────────────────────────────────────────────────────────
   const [currentPoints, setCurrentPoints] = useState([]);
   const [redoStack, setRedoStack] = useState([]);
   const [mousePos, setMousePos] = useState(null);
 
-  // SVG overlay geometry — updated whenever the image renders or container resizes
-  const [imgRect, setImgRect] = useState(null); // { left, top, width, height }
-  const [naturalSize, setNaturalSize] = useState(null); // { w, h }
+  // ── Drag-to-reposition state ──────────────────────────────────────────────
+  const [dragging, setDragging] = useState(false);
+  const dragRef = useRef({ startClient: null, startPoints: null, objId: null });
+
+  // ── Image overlay geometry ────────────────────────────────────────────────
+  const [imgRect, setImgRect] = useState(null);     // rendered rect inside container
+  const [naturalSize, setNaturalSize] = useState(null);
 
   const containerRef = useRef(null);
   const imgRef = useRef(null);
-  const svgRef = useRef(null);
 
-  // ── Measure the rendered image rect inside the container ──────────────────
+  // ── Measure rendered image rect ───────────────────────────────────────────
   const measureImage = useCallback(() => {
     const img = imgRef.current;
     const container = containerRef.current;
     if (!img || !container || !img.naturalWidth) return;
 
-    const containerRect = container.getBoundingClientRect();
-    const imgRenderedRect = img.getBoundingClientRect();
+    const cRect = container.getBoundingClientRect();
+    const iRect = img.getBoundingClientRect();
 
     setImgRect({
-      left: imgRenderedRect.left - containerRect.left,
-      top: imgRenderedRect.top - containerRect.top,
-      width: imgRenderedRect.width,
-      height: imgRenderedRect.height,
+      left: iRect.left - cRect.left,
+      top: iRect.top - cRect.top,
+      width: iRect.width,
+      height: iRect.height,
     });
     setNaturalSize({ w: img.naturalWidth, h: img.naturalHeight });
   }, []);
 
-  // Re-measure on container resize
   useEffect(() => {
     const container = containerRef.current;
     if (!container) return;
@@ -65,7 +65,6 @@ function BlueprintCanvas({
     return () => ro.disconnect();
   }, [measureImage, imageUrl]);
 
-  // Re-measure when imageUrl changes (new image loaded)
   useEffect(() => {
     setImgRect(null);
     setNaturalSize(null);
@@ -78,17 +77,10 @@ function BlueprintCanvas({
     setMousePos(null);
   }, [activeObjectId]);
 
-  // Notify parent of live path changes
-  useEffect(() => {
-    if (activeObjectId && onPathUpdate) {
-      onPathUpdate(activeObjectId, currentPoints);
-    }
-  }, [currentPoints, activeObjectId]);
-
   // ── Keyboard undo / redo ──────────────────────────────────────────────────
   const handleKeyDown = useCallback((e) => {
     if (!activeObjectId) return;
-    if (e.ctrlKey && e.shiftKey && e.key === "Z") {
+    if (e.ctrlKey && e.shiftKey && (e.key === "Z" || e.key === "z")) {
       e.preventDefault();
       setRedoStack((prev) => {
         if (prev.length === 0) return prev;
@@ -96,7 +88,7 @@ function BlueprintCanvas({
         setCurrentPoints((pts) => [...pts, point]);
         return prev.slice(0, -1);
       });
-    } else if (e.ctrlKey && (e.key === "z" || e.key === "Z") && !e.shiftKey) {
+    } else if (e.ctrlKey && !e.shiftKey && (e.key === "z" || e.key === "Z")) {
       e.preventDefault();
       setCurrentPoints((prev) => {
         if (prev.length === 0) return prev;
@@ -112,48 +104,102 @@ function BlueprintCanvas({
     return () => window.removeEventListener("keydown", handleKeyDown);
   }, [handleKeyDown]);
 
-  // ── Convert client coords → SVG (natural image) coords ───────────────────
+  // ── Coordinate conversion: client → natural-image pixels ─────────────────
   const clientToSvg = useCallback((clientX, clientY) => {
     if (!imgRect || !naturalSize) return { x: 0, y: 0 };
     const container = containerRef.current;
     if (!container) return { x: 0, y: 0 };
-    const containerRect = container.getBoundingClientRect();
-
-    // Position relative to the rendered image
-    const relX = clientX - containerRect.left - imgRect.left;
-    const relY = clientY - containerRect.top - imgRect.top;
-
-    // Scale to natural image pixels
-    const x = (relX / imgRect.width) * naturalSize.w;
-    const y = (relY / imgRect.height) * naturalSize.h;
-    return { x, y };
+    const cRect = container.getBoundingClientRect();
+    const relX = clientX - cRect.left - imgRect.left;
+    const relY = clientY - cRect.top - imgRect.top;
+    return {
+      x: (relX / imgRect.width) * naturalSize.w,
+      y: (relY / imgRect.height) * naturalSize.h,
+    };
   }, [imgRect, naturalSize]);
 
-  // ── SVG event handlers ────────────────────────────────────────────────────
+  // ── SVG drawing handlers ──────────────────────────────────────────────────
   const handleSvgMouseMove = (e) => {
-    if (!activeObjectId) return;
-    setMousePos(clientToSvg(e.clientX, e.clientY));
+    if (activeObjectId) {
+      setMousePos(clientToSvg(e.clientX, e.clientY));
+    }
+    if (dragging) {
+      handleDragMove(e);
+    }
   };
 
   const handleSvgClick = (e) => {
-    if (!activeObjectId) return;
+    if (!activeObjectId || dragging) return;
     const pos = clientToSvg(e.clientX, e.clientY);
     setCurrentPoints((prev) => [...prev, pos]);
     setRedoStack([]);
   };
 
   const handleSvgDoubleClick = (e) => {
-    if (!activeObjectId || currentPoints.length < 2) return;
+    if (!activeObjectId) return;
     e.preventDefault();
-    // The double-click fires click twice then dblclick — remove the extra point
-    setCurrentPoints((prev) => {
-      const trimmed = prev.slice(0, -1);
-      if (onPathUpdate) onPathUpdate(activeObjectId, trimmed);
-      if (onFinishDrawing) onFinishDrawing(activeObjectId);
-      return [];
-    });
+    e.stopPropagation();
+
+    // A double-click fires: click → click → dblclick
+    // So currentPoints already has 2 extra points added by the two clicks.
+    // We remove the last one (the second click of the double-click).
+    const trimmed = currentPoints.slice(0, -1);
+
+    if (trimmed.length < 2) {
+      // Not enough points for a line — cancel this element
+      setCurrentPoints([]);
+      setRedoStack([]);
+      setMousePos(null);
+      return;
+    }
+
+    // Push final path to parent FIRST, then mark as finished
+    if (onPathUpdate) onPathUpdate(activeObjectId, trimmed);
+    if (onFinishDrawing) onFinishDrawing(activeObjectId);
+
+    // Clear local drawing state
+    setCurrentPoints([]);
     setRedoStack([]);
     setMousePos(null);
+  };
+
+  // ── Drag-to-reposition handlers ───────────────────────────────────────────
+  const handlePathMouseDown = (e, obj) => {
+    if (activeObjectId) return; // don't drag while drawing
+    e.stopPropagation();
+    e.preventDefault();
+
+    onObjectSelected && onObjectSelected(obj);
+
+    dragRef.current = {
+      startClient: { x: e.clientX, y: e.clientY },
+      startPoints: obj.pathPoints.map((p) => ({ ...p })),
+      objId: obj.id,
+    };
+    setDragging(true);
+  };
+
+  const handleDragMove = (e) => {
+    const { startClient, startPoints, objId } = dragRef.current;
+    if (!startClient || !imgRect || !naturalSize) return;
+
+    // Delta in client pixels → convert to natural-image pixels
+    const dxClient = e.clientX - startClient.x;
+    const dyClient = e.clientY - startClient.y;
+    const dxNat = (dxClient / imgRect.width) * naturalSize.w;
+    const dyNat = (dyClient / imgRect.height) * naturalSize.h;
+
+    const movedPoints = startPoints.map((p) => ({
+      x: p.x + dxNat,
+      y: p.y + dyNat,
+    }));
+
+    if (onPathUpdate) onPathUpdate(objId, movedPoints);
+  };
+
+  const handleDragEnd = () => {
+    setDragging(false);
+    dragRef.current = { startClient: null, startPoints: null, objId: null };
   };
 
   // ── Path helpers ──────────────────────────────────────────────────────────
@@ -189,7 +235,6 @@ function BlueprintCanvas({
 
   return (
     <div className="blueprint-canvas active" ref={containerRef}>
-      {/* The image — we measure its rendered rect after load */}
       <img
         ref={imgRef}
         src={imageUrl}
@@ -199,11 +244,9 @@ function BlueprintCanvas({
         draggable={false}
       />
 
-      {/* SVG overlay — positioned and sized to match the rendered image exactly */}
       {imgRect && naturalSize && (
         <svg
-          ref={svgRef}
-          className={`drawing-layer${activeObjectId ? " drawing" : ""}`}
+          className={`drawing-layer${activeObjectId ? " drawing" : ""}${dragging ? " dragging" : ""}`}
           style={{
             position: "absolute",
             left: imgRect.left,
@@ -217,11 +260,16 @@ function BlueprintCanvas({
           onClick={handleSvgClick}
           onDoubleClick={handleSvgDoubleClick}
           onMouseMove={handleSvgMouseMove}
-          onMouseLeave={() => setMousePos(null)}
+          onMouseUp={handleDragEnd}
+          onMouseLeave={(e) => {
+            setMousePos(null);
+            if (dragging) handleDragEnd();
+          }}
         >
-          {/* Finished objects */}
+          {/* Finished / in-progress objects */}
           {objects.map((obj) => {
             const isSelected = obj.id === selectedObjectId;
+            const isBeingDragged = dragging && dragRef.current.objId === obj.id;
             return (
               <path
                 key={obj.id}
@@ -229,9 +277,16 @@ function BlueprintCanvas({
                 className={`blueprint-object ${obj.type}${obj.completed ? " completed" : ""}${isSelected ? " selected" : ""}`}
                 strokeWidth={isSelected ? 7 : 5}
                 fill="none"
-                style={{ cursor: activeObjectId ? "crosshair" : "pointer" }}
+                style={{
+                  cursor: activeObjectId
+                    ? "crosshair"
+                    : isSelected
+                    ? (dragging ? "grabbing" : "grab")
+                    : "pointer",
+                }}
+                onMouseDown={(e) => handlePathMouseDown(e, obj)}
                 onClick={(e) => {
-                  if (activeObjectId) return;
+                  if (activeObjectId || dragging) return;
                   e.stopPropagation();
                   onObjectSelected && onObjectSelected(obj);
                 }}

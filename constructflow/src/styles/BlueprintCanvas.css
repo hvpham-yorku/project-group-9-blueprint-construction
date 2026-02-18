@@ -64,6 +64,10 @@
   cursor: crosshair;
 }
 
+.drawing-layer.dragging {
+  cursor: grabbing;
+}
+
 /* ── Path styles ── */
 .blueprint-object {
   stroke-linecap: round;
