@@ -12,7 +12,7 @@ Customer meeting’s summary video: https://youtu.be/ytbclsm6Geg [![YouTube](htt
 ## Project Structure
 
 ```
-project-group-9-constructflow/
+group9-constructflow/
 ├── constructflow/              # Main application (React/Vite)
 │   ├── public/                 # Static public assets
 │   ├── src/                    # Application source code
