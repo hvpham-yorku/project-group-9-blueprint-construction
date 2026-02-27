@@ -6,11 +6,48 @@
  */
 
 import { useState } from "react";
+import { useAuth } from "../contexts/AuthContext";
+import { useNavigate } from "react-router-dom";
 import "../styles/LoginPage.css";
 
 function LoginPage() {
+  const [isSignUp, setIsSignUp] = useState(false);
   const [email, setEmail] = useState("");
   const [password, setPassword] = useState("");
+  const [confirmPassword, setConfirmPassword] = useState("");
+  const [name, setName] = useState("");
+  const [role, setRole] = useState("worker");
+  const [workerRole, setWorkerRole] = useState("electrician");
+  const [error, setError] = useState("");
+  const [loading, setLoading] = useState(false);
+  const { signup, login } = useAuth();
+  const navigate = useNavigate();
+
+  const handleSubmit = async (e) => {
+    e.preventDefault();
+    setError("");
+
+    if (isSignUp && password !== confirmPassword) {
+      setError("Passwords do not match");
+      return;
+    }
+
+    setLoading(true);
+
+    try {
+      if (isSignUp) {
+        const roleData = role === "manager" ? "manager" : workerRole;
+        await signup(email, password, name, roleData);
+      } else {
+        await login(email, password);
+      }
+      navigate("/dashboard");
+    } catch (err) {
+      setError(err.message || "Authentication failed");
+    }
+
+    setLoading(false);
+  };
 
   return (
     <div className="login-page">
@@ -21,34 +58,111 @@ function LoginPage() {
         </div>
 
         <div className="login-form">
-          <h2>Sign In</h2>
+          <h2>{isSignUp ? "Create Account" : "Sign In"}</h2>
 
-          <div className="form-group">
-            <label htmlFor="email">Email</label>
-            <input
-              id="email"
-              type="email"
-              placeholder="Enter your email"
-              value={email}
-              onChange={(e) => setEmail(e.target.value)}
-            />
-          </div>
+          {error && <div className="error-message">{error}</div>}
 
-          <div className="form-group">
-            <label htmlFor="password">Password</label>
-            <input
-              id="password"
-              type="password"
-              placeholder="Enter your password"
-              value={password}
-              onChange={(e) => setPassword(e.target.value)}
-            />
-          </div>
+          <form onSubmit={handleSubmit}>
+            {isSignUp && (
+              <>
+                <div className="form-group">
+                  <label htmlFor="name">Name</label>
+                  <input
+                    id="name"
+                    type="text"
+                    placeholder="Enter your name"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    required
+                  />
+                </div>
 
-          <button className="btn-primary">Login</button>
+                <div className="form-group">
+                  <label htmlFor="role">Account Type</label>
+                  <select
+                    id="role"
+                    value={role}
+                    onChange={(e) => setRole(e.target.value)}
+                  >
+                    <option value="manager">Manager</option>
+                    <option value="worker">Worker</option>
+                  </select>
+                </div>
+
+                {role === "worker" && (
+                  <div className="form-group">
+                    <label htmlFor="workerRole">Specialty</label>
+                    <select
+                      id="workerRole"
+                      value={workerRole}
+                      onChange={(e) => setWorkerRole(e.target.value)}
+                    >
+                      <option value="electrician">Electrician</option>
+                      <option value="plumber">Plumber</option>
+                      <option value="carpenter">Carpenter</option>
+                    </select>
+                  </div>
+                )}
+              </>
+            )}
+
+            <div className="form-group">
+              <label htmlFor="email">Email</label>
+              <input
+                id="email"
+                type="email"
+                placeholder="Enter your email"
+                value={email}
+                onChange={(e) => setEmail(e.target.value)}
+                required
+              />
+            </div>
+
+            <div className="form-group">
+              <label htmlFor="password">Password</label>
+              <input
+                id="password"
+                type="password"
+                placeholder="Enter your password"
+                value={password}
+                onChange={(e) => setPassword(e.target.value)}
+                required
+              />
+            </div>
+
+            {isSignUp && (
+              <div className="form-group">
+                <label htmlFor="confirmPassword">Confirm Password</label>
+                <input
+                  id="confirmPassword"
+                  type="password"
+                  placeholder="Confirm your password"
+                  value={confirmPassword}
+                  onChange={(e) => setConfirmPassword(e.target.value)}
+                  required
+                />
+              </div>
+            )}
+
+            <button type="submit" className="btn-primary" disabled={loading}>
+              {loading ? "Please wait..." : isSignUp ? "Sign Up" : "Sign In"}
+            </button>
+          </form>
 
           <div className="login-footer">
-            <a href="#forgot">Forgot Password?</a>
+            <p>
+              {isSignUp ? "Already have an account? " : "Don't have an account? "}
+              <button
+                type="button"
+                onClick={() => {
+                  setIsSignUp(!isSignUp);
+                  setError("");
+                }}
+                className="link-btn"
+              >
+                {isSignUp ? "Sign In" : "Sign Up"}
+              </button>
+            </p>
           </div>
         </div>
       </div>

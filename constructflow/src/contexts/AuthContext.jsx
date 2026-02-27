@@ -12,32 +12,38 @@ import { auth, db } from "../firebase";
 
 const AuthContext = createContext();
 
-// Use this hook to access current user and auth functions anywhere in the app
 export function useAuth() {
   return useContext(AuthContext);
 }
 
-// Auth provider component - wraps entire app to handle authentication
 export function AuthProvider({ children }) {
   const [currentUser, setCurrentUser] = useState(null);
-  const [userProfile, setUserProfile] = useState(null); // Firestore user doc
+  const [userProfile, setUserProfile] = useState(null);
   const [loading, setLoading] = useState(true);
 
-  async function signup(email, password) {
-    return createUserWithEmailAndPassword(auth, email, password);
+  async function signup(email, password, name, role) {
+    // Create user in Firebase Auth
+    const result = await createUserWithEmailAndPassword(auth, email, password);
+    
+    // Save user profile to Firestore
+    await setDoc(doc(db, "users", result.user.uid), {
+      email,
+      name,
+      role,
+      createdAt: new Date().toISOString(),
+    });
+
+    return result;
   }
 
-  // Sign in existing user
   async function login(email, password) {
     return signInWithEmailAndPassword(auth, email, password);
   }
 
-  // Sign out current user
   async function logout() {
     return signOut(auth);
   }
 
-  // Listen for auth state changes (when user logs in/out) so app can update
   useEffect(() => {
     const unsubscribe = onAuthStateChanged(auth, async (user) => {
       setCurrentUser(user);
@@ -56,19 +62,18 @@ export function AuthProvider({ children }) {
     return unsubscribe;
   }, []);
 
-  // Expose auth functions and current user to all child components
   const value = {
     currentUser,
-    userProfile,   // has .role, .name, etc.
+    userProfile,
     signup,
     login,
     logout,
+    loading,
   };
 
-  // Don't render children until we've checked auth status on app load
   return (
     <AuthContext.Provider value={value}>
-      {!loading && children}
+      {children}
     </AuthContext.Provider>
   );
 }
