@@ -1,0 +1,104 @@
+/* ── Override worker-header to flex properly with action buttons ─── */
+.worker-header {
+  display: flex;
+  align-items: center;
+  gap: 12px;
+  margin-bottom: 12px;
+}
+
+.worker-info {
+  flex: 1;
+  min-width: 0;
+}
+
+/* ── You tag ──────────────────────────────────────────────────────── */
+.worker-you-tag {
+  font-size: 11px;
+  color: #a0aec0;
+  font-weight: 400;
+  margin-left: 6px;
+}
+
+/* ── Per-worker action buttons ────────────────────────────────────── */
+.worker-actions {
+  display: flex;
+  gap: 6px;
+  flex-shrink: 0;
+  margin-left: auto;
+}
+
+.waction-btn {
+  width: 30px;
+  height: 30px;
+  border-radius: 7px;
+  border: 1.5px solid #e5e7eb;
+  background: white;
+  cursor: pointer;
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  font-size: 16px;
+  color: #6b7280;
+  transition: all 0.15s;
+  flex-shrink: 0;
+}
+
+.waction-btn.edit:hover {
+  border-color: #ff6b35;
+  color: #ff6b35;
+  background: #fff7f4;
+}
+
+.waction-btn.remove:hover {
+  border-color: #fca5a5;
+  color: #ef4444;
+  background: #fff1f2;
+}
+
+.waction-btn.confirm {
+  border-color: #86efac;
+  color: #16a34a;
+  background: #f0fdf4;
+}
+
+.waction-btn.confirm:hover {
+  background: #dcfce7;
+}
+
+.waction-btn.cancel:hover {
+  border-color: #fca5a5;
+  color: #ef4444;
+  background: #fff1f2;
+}
+
+/* ── Card footer row (role badge + joined date) ───────────────────── */
+.worker-card-footer {
+  display: flex;
+  justify-content: space-between;
+  align-items: center;
+  margin-top: 4px;
+}
+
+.worker-joined {
+  font-size: 12px;
+  color: #a0aec0;
+}
+
+/* ── Inline role dropdown ─────────────────────────────────────────── */
+.role-select {
+  padding: 4px 10px;
+  border: 1.5px solid #d1d5db;
+  border-radius: 7px;
+  font-size: 13px;
+  font-weight: 600;
+  outline: none;
+  background: white;
+  cursor: pointer;
+  transition: border-color 0.15s;
+  max-width: 150px;
+}
+
+.role-select:focus {
+  border-color: #ff6b35;
+  box-shadow: 0 0 0 2px rgba(255, 107, 53, 0.12);
+}

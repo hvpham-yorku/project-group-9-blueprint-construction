@@ -661,7 +661,6 @@ export default function BlueprintViewer() {
                 </div>
               )}
             </div>
-
           </div>
 
           {/* ── Hint bar — always same height so toolbar never shifts ── */}
@@ -688,7 +687,10 @@ export default function BlueprintViewer() {
                 onPathUpdate={isManager ? handlePathUpdate : undefined}
                 onFinishDrawing={isManager ? handleFinishDrawing : undefined}
                 onObjectSelected={(obj) => {
-                  if (!activeObjectId) setSelectedObjectId(obj.id);
+                  if (!activeObjectId)
+                    setSelectedObjectId((prev) =>
+                      prev === obj.id ? null : obj.id,
+                    );
                 }}
                 isWorker={isWorker}
               />
@@ -727,7 +729,10 @@ export default function BlueprintViewer() {
                       key={obj.id}
                       className={`section-card ${obj.type}${selectedObjectId === obj.id ? " active" : ""}${obj.drawing ? " drawing-active" : ""}${isOwn ? " own-element" : ""}`}
                       onClick={() => {
-                        if (!activeObjectId) setSelectedObjectId(obj.id);
+                        if (!activeObjectId)
+                          setSelectedObjectId((prev) =>
+                            prev === obj.id ? null : obj.id,
+                          );
                       }}
                     >
                       <div className="section-header">

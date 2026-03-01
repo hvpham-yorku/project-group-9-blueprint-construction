@@ -2,8 +2,7 @@
  * WorkersPage.jsx
  *
  * Manager-only page showing all workers in the current organisation.
- * Displays each worker's trade, and allows the manager to copy the invite code
- * to share with new members.
+ * Manager can change a worker's trade role or remove them from the org.
  */
 
 import { useState, useEffect } from "react";
@@ -17,9 +16,13 @@ import {
   where,
   doc,
   getDoc,
+  updateDoc,
+  deleteField,
 } from "firebase/firestore";
 import { db } from "../firebase";
+import { MdEdit, MdCheck, MdClose, MdPersonRemove } from "react-icons/md";
 import "../styles/Dashboard.css";
+import "../styles/WorkersPage.css";
 
 const ROLE_COLORS = {
   carpenter: { bg: "#f3e8ff", fg: "#7c3aed" },
@@ -27,6 +30,12 @@ const ROLE_COLORS = {
   plumber: { bg: "#fff1f2", fg: "#be123c" },
   manager: { bg: "#fff7ed", fg: "#c2410c" },
 };
+
+const WORKER_ROLES = [
+  { value: "carpenter", label: "Carpenter" },
+  { value: "electrician", label: "Electrician" },
+  { value: "plumber", label: "Plumber" },
+];
 
 const ROLE_LABELS = {
   carpenter: "Carpenter",
@@ -42,16 +51,19 @@ export default function WorkersPage() {
   const [loadingData, setLoadingData] = useState(true);
   const [showCode, setShowCode] = useState(false);
 
+  // Per-worker inline role editing
+  const [editingRoleUid, setEditingRoleUid] = useState(null);
+  const [roleEditValue, setRoleEditValue] = useState("");
+  const [roleSaving, setRoleSaving] = useState(false);
+
   useEffect(() => {
     if (!organizationId) return;
     const load = async () => {
       setLoadingData(true);
       try {
-        // Org info
         const orgSnap = await getDoc(doc(db, "organizations", organizationId));
         if (orgSnap.exists()) setOrgData(orgSnap.data());
 
-        // All users in the org
         const q = query(
           collection(db, "users"),
           where("organizationId", "==", organizationId),
@@ -73,6 +85,57 @@ export default function WorkersPage() {
     };
     load();
   }, [organizationId]);
+
+  // ── Change a worker's role ───────────────────────────────────────────
+  const startEditRole = (member) => {
+    setEditingRoleUid(member.uid);
+    setRoleEditValue(member.role);
+  };
+
+  const saveRole = async (uid) => {
+    if (!roleEditValue) return;
+    setRoleSaving(true);
+    try {
+      await updateDoc(doc(db, "users", uid), { role: roleEditValue });
+      // Also update the members map in the org doc
+      await updateDoc(doc(db, "organizations", organizationId), {
+        [`members.${uid}.role`]: roleEditValue,
+      });
+      setMembers((prev) =>
+        prev.map((m) => (m.uid === uid ? { ...m, role: roleEditValue } : m)),
+      );
+      setEditingRoleUid(null);
+    } catch (err) {
+      console.error("Role save failed:", err);
+      alert("Failed to update role.");
+    }
+    setRoleSaving(false);
+  };
+
+  // ── Remove a worker from the org ────────────────────────────────────
+  const removeWorker = async (member) => {
+    if (
+      !window.confirm(
+        `Remove ${member.name || "this worker"} from the organisation? They will lose access.`,
+      )
+    )
+      return;
+    try {
+      // Reset user: clear org + revert to general role
+      await updateDoc(doc(db, "users", member.uid), {
+        organizationId: null,
+        role: "general",
+      });
+      // Remove from org members map
+      await updateDoc(doc(db, "organizations", organizationId), {
+        [`members.${member.uid}`]: deleteField(),
+      });
+      setMembers((prev) => prev.filter((m) => m.uid !== member.uid));
+    } catch (err) {
+      console.error("Remove worker failed:", err);
+      alert("Failed to remove worker.");
+    }
+  };
 
   const workers = members.filter((m) => m.role !== "manager");
 
@@ -145,6 +208,9 @@ export default function WorkersPage() {
                   };
                   const rl = ROLE_LABELS[member.role] || member.role;
                   const isMe = member.uid === userProfile?.uid;
+                  const isManagerMember = member.role === "manager";
+                  const isEditingThisRole = editingRoleUid === member.uid;
+
                   return (
                     <div key={member.uid} className="worker-card">
                       <div className="worker-header">
@@ -155,36 +221,78 @@ export default function WorkersPage() {
                           <h3>
                             {member.name || "—"}
                             {isMe && (
-                              <span
-                                style={{
-                                  fontSize: 11,
-                                  color: "#a0aec0",
-                                  fontWeight: 400,
-                                  marginLeft: 6,
-                                }}
-                              >
-                                (you)
-                              </span>
+                              <span className="worker-you-tag">(you)</span>
                             )}
                           </h3>
                           <p>{member.email}</p>
                         </div>
+
+                        {/* Manager actions — only for non-manager members, not self */}
+                        {!isManagerMember && !isMe && (
+                          <div className="worker-actions">
+                            {isEditingThisRole ? (
+                              <>
+                                <button
+                                  className="waction-btn confirm"
+                                  onClick={() => saveRole(member.uid)}
+                                  disabled={roleSaving}
+                                  title="Save role"
+                                >
+                                  <MdCheck />
+                                </button>
+                                <button
+                                  className="waction-btn cancel"
+                                  onClick={() => setEditingRoleUid(null)}
+                                  title="Cancel"
+                                >
+                                  <MdClose />
+                                </button>
+                              </>
+                            ) : (
+                              <>
+                                <button
+                                  className="waction-btn edit"
+                                  onClick={() => startEditRole(member)}
+                                  title="Change role"
+                                >
+                                  <MdEdit />
+                                </button>
+                                <button
+                                  className="waction-btn remove"
+                                  onClick={() => removeWorker(member)}
+                                  title="Remove from org"
+                                >
+                                  <MdPersonRemove />
+                                </button>
+                              </>
+                            )}
+                          </div>
+                        )}
                       </div>
-                      <div
-                        style={{
-                          display: "flex",
-                          justifyContent: "space-between",
-                          alignItems: "center",
-                          marginTop: 4,
-                        }}
-                      >
-                        <span
-                          className="status-badge"
-                          style={{ background: rc.bg, color: rc.fg }}
-                        >
-                          {rl}
-                        </span>
-                        <span style={{ fontSize: 12, color: "#a0aec0" }}>
+
+                      <div className="worker-card-footer">
+                        {isEditingThisRole ? (
+                          <select
+                            className="role-select"
+                            value={roleEditValue}
+                            onChange={(e) => setRoleEditValue(e.target.value)}
+                            autoFocus
+                          >
+                            {WORKER_ROLES.map((r) => (
+                              <option key={r.value} value={r.value}>
+                                {r.label}
+                              </option>
+                            ))}
+                          </select>
+                        ) : (
+                          <span
+                            className="status-badge"
+                            style={{ background: rc.bg, color: rc.fg }}
+                          >
+                            {rl}
+                          </span>
+                        )}
+                        <span className="worker-joined">
                           Joined{" "}
                           {member.createdAt
                             ? new Date(member.createdAt).toLocaleDateString()

@@ -29,6 +29,7 @@ import {
   MdLock,
   MdDeleteForever,
   MdWarning,
+  MdWorkspaces,
 } from "react-icons/md";
 import "../styles/SettingsPage.css";
 
@@ -40,8 +41,14 @@ const ROLE_LABELS = {
   general: "No role assigned",
 };
 
+const WORKER_ROLES = [
+  { value: "carpenter", label: "Carpenter" },
+  { value: "electrician", label: "Electrician" },
+  { value: "plumber", label: "Plumber" },
+];
+
 export default function SettingsPage() {
-  const { currentUser, userProfile, logout } = useAuth();
+  const { currentUser, userProfile, logout, refreshProfile } = useAuth();
   const navigate = useNavigate();
 
   // ── Display name editing ────────────────────────────────────────────────
@@ -80,15 +87,21 @@ export default function SettingsPage() {
   const handleChangePassword = async (e) => {
     e.preventDefault();
     setPwError("");
-    if (newPw.length < 6) return setPwError("New password must be at least 6 characters.");
+    if (newPw.length < 6)
+      return setPwError("New password must be at least 6 characters.");
     if (newPw !== confirmPw) return setPwError("Passwords do not match.");
     setPwSaving(true);
     try {
-      const credential = EmailAuthProvider.credential(currentUser.email, currentPw);
+      const credential = EmailAuthProvider.credential(
+        currentUser.email,
+        currentPw,
+      );
       await reauthenticateWithCredential(currentUser, credential);
       await updatePassword(currentUser, newPw);
       setPwSuccess(true);
-      setCurrentPw(""); setNewPw(""); setConfirmPw("");
+      setCurrentPw("");
+      setNewPw("");
+      setConfirmPw("");
       setShowChangePw(false);
     } catch (err) {
       if (
@@ -139,10 +152,34 @@ export default function SettingsPage() {
     setDeleting(false);
   };
 
+  // ── Role change (workers only) ──────────────────────────────────────────
+  const isWorkerRole = ["carpenter", "electrician", "plumber"].includes(
+    userProfile?.role,
+  );
+  const [editingRole, setEditingRole] = useState(false);
+  const [roleValue, setRoleValue] = useState(userProfile?.role || "");
+  const [roleSaving, setRoleSaving] = useState(false);
+  const [roleError, setRoleError] = useState("");
+  const [roleSuccess, setRoleSuccess] = useState(false);
+
+  const saveRole = async () => {
+    if (!roleValue) return;
+    setRoleSaving(true);
+    setRoleError("");
+    try {
+      await updateDoc(doc(db, "users", currentUser.uid), { role: roleValue });
+      await refreshProfile();
+      setEditingRole(false);
+      setRoleSuccess(true);
+      setTimeout(() => setRoleSuccess(false), 3000);
+    } catch {
+      setRoleError("Failed to update role.");
+    }
+    setRoleSaving(false);
+  };
+
   const email = currentUser?.email || "—";
-  const displayName = nameSuccess
-    ? nameValue.trim()
-    : userProfile?.name || "—";
+  const displayName = nameSuccess ? nameValue.trim() : userProfile?.name || "—";
   const role = ROLE_LABELS[userProfile?.role] || "—";
 
   return (
@@ -152,15 +189,15 @@ export default function SettingsPage() {
         <Header title="Settings" />
 
         <div className="settings-page">
-
           {/* ── Profile ── */}
           <div className="settings-section">
             <h2 className="settings-section-title">Profile</h2>
             <div className="settings-card">
-
               {/* Name */}
               <div className="setting-row">
-                <div className="setting-row-icon"><MdPerson /></div>
+                <div className="setting-row-icon">
+                  <MdPerson />
+                </div>
                 <div className="setting-row-body">
                   <span className="setting-row-label">Display Name</span>
                   {editingName ? (
@@ -222,7 +259,9 @@ export default function SettingsPage() {
 
               {/* Email */}
               <div className="setting-row">
-                <div className="setting-row-icon"><MdEmail /></div>
+                <div className="setting-row-icon">
+                  <MdEmail />
+                </div>
                 <div className="setting-row-body">
                   <span className="setting-row-label">Email</span>
                   <span className="setting-row-value">{email}</span>
@@ -231,13 +270,74 @@ export default function SettingsPage() {
 
               {/* Role */}
               <div className="setting-row">
-                <div className="setting-row-icon"><MdBadge /></div>
+                <div className="setting-row-icon">
+                  <MdBadge />
+                </div>
                 <div className="setting-row-body">
                   <span className="setting-row-label">Role</span>
-                  <span className="setting-row-value">{role}</span>
+                  {editingRole ? (
+                    <div className="setting-edit-inline">
+                      <select
+                        className="setting-input"
+                        value={roleValue}
+                        onChange={(e) => setRoleValue(e.target.value)}
+                        autoFocus
+                      >
+                        {WORKER_ROLES.map((r) => (
+                          <option key={r.value} value={r.value}>
+                            {r.label}
+                          </option>
+                        ))}
+                      </select>
+                      {roleError && (
+                        <span className="setting-error">{roleError}</span>
+                      )}
+                    </div>
+                  ) : (
+                    <span className="setting-row-value">
+                      {ROLE_LABELS[userProfile?.role] || role}
+                      {roleSuccess && (
+                        <span className="setting-success-inline"> ✓ Saved</span>
+                      )}
+                    </span>
+                  )}
                 </div>
+                {isWorkerRole && (
+                  <div className="setting-row-action">
+                    {editingRole ? (
+                      <>
+                        <button
+                          className="icon-btn confirm"
+                          onClick={saveRole}
+                          disabled={roleSaving}
+                          title="Save role"
+                        >
+                          <MdCheck />
+                        </button>
+                        <button
+                          className="icon-btn cancel"
+                          onClick={() => {
+                            setEditingRole(false);
+                            setRoleValue(userProfile?.role || "");
+                            setRoleError("");
+                          }}
+                          title="Cancel"
+                        >
+                          <MdClose />
+                        </button>
+                      </>
+                    ) : (
+                      <button
+                        className="icon-btn edit"
+                        onClick={() => setEditingRole(true)}
+                        title="Change role"
+                      >
+                        <MdEdit />
+                      </button>
+                    )}
+                  </div>
+                )}
               </div>
-
             </div>
           </div>
 
@@ -246,11 +346,16 @@ export default function SettingsPage() {
             <h2 className="settings-section-title">Security</h2>
             <div className="settings-card">
               <div className="setting-row">
-                <div className="setting-row-icon"><MdLock /></div>
+                <div className="setting-row-icon">
+                  <MdLock />
+                </div>
                 <div className="setting-row-body">
                   <span className="setting-row-label">Password</span>
                   {pwSuccess && (
-                    <span className="setting-success-inline"> ✓ Password updated</span>
+                    <span className="setting-success-inline">
+                      {" "}
+                      ✓ Password updated
+                    </span>
                   )}
                   {!showChangePw && (
                     <span className="setting-row-value">••••••••</span>
@@ -360,7 +465,6 @@ export default function SettingsPage() {
               </div>
             </div>
           </div>
-
         </div>
       </div>
 
@@ -394,8 +498,8 @@ export default function SettingsPage() {
               </span>
               <h2>Delete Account</h2>
               <p>
-                This will permanently delete your account from Firebase Auth
-                and all your data from Firestore. This{" "}
+                This will permanently delete your account from Firebase Auth and
+                all your data from Firestore. This{" "}
                 <strong>cannot be undone</strong>.
               </p>
             </div>
