@@ -30,6 +30,10 @@ cd constructflow
 
 Then follow the directions in [constructflow/README.md](constructflow/README.md).
 
+## How to test
+
+Follow the directions in [constructflow/README.md](constructflow/README.md) Testing section.
+
 ## Features
 
 - **Role-based dashboards** - Distinct interfaces for managers and workers
