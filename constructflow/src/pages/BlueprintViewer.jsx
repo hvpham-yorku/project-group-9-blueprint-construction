@@ -11,7 +11,7 @@
  */
 
 import { useState, useEffect, useCallback, useRef } from "react";
-import { useNavigate, useParams } from "react-router-dom";
+import { useNavigate, useParams, useSearchParams } from "react-router-dom";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
 import BlueprintCanvas from "../components/BlueprintCanvas";
@@ -30,6 +30,7 @@ import {
   collection,
   addDoc,
   getDocs,
+  getDoc,
   doc,
   updateDoc,
   deleteDoc,
@@ -123,7 +124,8 @@ const hydrateObject = (id, raw) =>
 
 export default function BlueprintViewer() {
   const { currentUser, userProfile, isManager, organizationId } = useAuth();
-  const { projectId } = useParams();
+  const { projectId, taskId } = useParams();
+  const [searchParams] = useSearchParams();
   const navigate = useNavigate();
 
   const isAuthenticated = Boolean(currentUser);
@@ -159,6 +161,8 @@ export default function BlueprintViewer() {
   const [savedBlueprints, setSavedBlueprints] = useState([]);
   const [showDropdown, setShowDropdown] = useState(false);
   const dropdownRef = useRef(null);
+  const [taskAccessChecked, setTaskAccessChecked] = useState(false);
+  const [canAccessTaskBlueprints, setCanAccessTaskBlueprints] = useState(true);
 
   // ── Dirty tracking ───────────────────────────────────────────────────
   const [objectsInitialized, setObjectsInitialized] = useState(false);
@@ -250,7 +254,10 @@ export default function BlueprintViewer() {
           where("projectId", "==", projectId),
         ),
       );
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      let list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      if (taskId) {
+        list = list.filter((blueprint) => blueprint.taskId === taskId);
+      }
       list.sort(
         (a, b) =>
           (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0),
@@ -261,19 +268,76 @@ export default function BlueprintViewer() {
       console.error("Fetch blueprints:", err);
       return [];
     }
-  }, [projectId]);
+  }, [projectId, taskId]);
+
+  // ── Task access control (for task-scoped blueprints) ────────────────
+  useEffect(() => {
+    if (!isAuthenticated) return;
+    if (!taskId) {
+      setCanAccessTaskBlueprints(true);
+      setTaskAccessChecked(true);
+      return;
+    }
+
+    const checkTaskAccess = async () => {
+      setTaskAccessChecked(false);
+      try {
+        const snap = await getDoc(doc(db, "tasks", taskId));
+        if (!snap.exists()) {
+          setCanAccessTaskBlueprints(false);
+          return;
+        }
+
+        const task = snap.data();
+        const belongsToProject = task.projectId === projectId;
+        const isAssignedWorker =
+          Boolean(currentUid) && task.assignedWorkerId === currentUid;
+        const canAccess = belongsToProject && (isManager || isAssignedWorker);
+        setCanAccessTaskBlueprints(canAccess);
+      } catch (err) {
+        console.error("Task access check:", err);
+        setCanAccessTaskBlueprints(false);
+      } finally {
+        setTaskAccessChecked(true);
+      }
+    };
+
+    checkTaskAccess();
+  }, [isAuthenticated, taskId, projectId, currentUid, isManager]);
 
   // ── On mount ─────────────────────────────────────────────────────────
   useEffect(() => {
     if (!isAuthenticated) return;
+    if (taskId && !taskAccessChecked) return;
+    if (taskId && !canAccessTaskBlueprints) {
+      setSavedBlueprints([]);
+      return;
+    }
+
     fetchBlueprints().then((list) => {
+      const requestedId = searchParams.get("blueprintId");
+      if (requestedId) {
+        const requestedBlueprint = list.find((b) => b.id === requestedId);
+        if (requestedBlueprint) {
+          loadBlueprintData(requestedBlueprint);
+          return;
+        }
+      }
+
       const lastId = localStorage.getItem(LS_KEY);
       if (lastId) {
         const bp = list.find((b) => b.id === lastId);
         if (bp) loadBlueprintData(bp);
       }
     });
-  }, [isAuthenticated, fetchBlueprints]);
+  }, [
+    isAuthenticated,
+    fetchBlueprints,
+    searchParams,
+    taskId,
+    taskAccessChecked,
+    canAccessTaskBlueprints,
+  ]);
 
   // ── Load blueprint (internal) ─────────────────────────────────────
   const loadBlueprintData = (bp) => {
@@ -607,6 +671,7 @@ export default function BlueprintViewer() {
         imageUrl: blueprintImage,
         objects: objectsMap,
         projectId,
+        taskId: taskId || null,
         organizationId,
         updatedAt: new Date(),
       };
@@ -697,6 +762,30 @@ export default function BlueprintViewer() {
     );
   }
 
+  if (taskId && !taskAccessChecked) {
+    return (
+      <div className="dashboard">
+        <Sidebar />
+        <div className="dashboard-content">
+          <div className="sign-in-message">Checking task access…</div>
+        </div>
+      </div>
+    );
+  }
+
+  if (taskId && !canAccessTaskBlueprints) {
+    return (
+      <div className="dashboard">
+        <Sidebar />
+        <div className="dashboard-content">
+          <div className="sign-in-message">
+            You do not have access to this task blueprint.
+          </div>
+        </div>
+      </div>
+    );
+  }
+
   return (
     <div className="dashboard">
       <Sidebar />
@@ -709,10 +798,12 @@ export default function BlueprintViewer() {
             {/* Back to projects */}
             <button
               className="btn-back"
-              onClick={() => navigate("/projects")}
+              onClick={() =>
+                taskId ? navigate(`/projects/${projectId}/tasks`) : navigate("/projects")
+              }
               title="Back to Projects"
             >
-              <MdArrowBack /> Projects
+              <MdArrowBack /> {taskId ? "Tasks" : "Projects"}
             </button>
 
             {/* Blueprint name */}

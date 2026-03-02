@@ -98,7 +98,10 @@ function BlueprintCanvas({
   }, [imageUrl]);
 
   useEffect(() => {
-    measureImage();
+    const rafId = requestAnimationFrame(() => {
+      measureImage();
+    });
+    return () => cancelAnimationFrame(rafId);
   }, [zoom, measureImage]);
 
   // ── Reset drawing state when active element changes ───────────────────────
