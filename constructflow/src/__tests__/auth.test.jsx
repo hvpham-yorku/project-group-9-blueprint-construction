@@ -32,6 +32,8 @@ vi.mock("../firebase", () => ({
 vi.mock("react-icons/md", () => ({
   MdNotifications: () => <div>NotificationIcon</div>,
   MdPerson: () => <div>PersonIcon</div>,
+  MdClose: () => <div>CloseIcon</div>,
+  MdConstruction: () => <div>ConstructionIcon</div>,
 }));
 
 describe("Authentication Tests", () => {
