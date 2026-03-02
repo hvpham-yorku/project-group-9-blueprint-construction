@@ -8,6 +8,7 @@
  * Drawing types:
  *   hot_pipe   → plumbers     (red)
  *   cold_pipe  → plumbers     (blue)
+ *   drain_pipe → plumbers     (silver)
  *   connection → electricians
  */
 
@@ -49,6 +50,7 @@ const makeId = () => `obj-${Date.now()}-${_nextId++}`;
 const TYPE_TRADE = {
   hot_pipe: "plumber",
   cold_pipe: "plumber",
+  drain_pipe: "plumber",
   fixture_area: "plumber",
   pipe: "plumber",
   connection: "electrician",
@@ -57,6 +59,7 @@ const TYPE_TRADE = {
 const TYPE_LABELS = {
   hot_pipe: "Hot Water Pipe",
   cold_pipe: "Cold Water Pipe",
+  drain_pipe: "Drainage Pipe",
   fixture_area: "Fixture",
   pipe: "Hot Water Pipe",
   connection: "Wire",
@@ -464,7 +467,7 @@ export default function BlueprintViewer() {
         drawing: true,
       }),
     ]);
-    if (["pipe", "hot_pipe", "cold_pipe", "fixture_area"].includes(type)) {
+    if (["pipe", "hot_pipe", "cold_pipe", "drain_pipe", "fixture_area"].includes(type)) {
       setActivePlumbingTool(type);
     }
     setSelectedPoint(null);
@@ -576,7 +579,7 @@ export default function BlueprintViewer() {
     setObjects((prev) =>
       prev.map((obj) => {
         if (obj.id !== objId) return obj;
-        if (!["pipe", "hot_pipe", "cold_pipe"].includes(obj.type)) return obj;
+        if (!["pipe", "hot_pipe", "cold_pipe", "drain_pipe"].includes(obj.type)) return obj;
         const pointTasks = syncPointTasksWithPoints(
           obj.pointTasks,
           obj.pathPoints.length,
@@ -622,7 +625,7 @@ export default function BlueprintViewer() {
   const handlePointToolHover = (objId, pointIndex, tool) => {
     if (!isManager || !POINT_TOOL_TYPES.includes(tool)) return;
     const obj = objects.find((item) => item.id === objId);
-    if (!obj || !["pipe", "hot_pipe", "cold_pipe"].includes(obj.type)) return;
+    if (!obj || !["pipe", "hot_pipe", "cold_pipe", "drain_pipe"].includes(obj.type)) return;
     const existingTask = obj.pointTasks?.[pointIndex];
     if (existingTask?.requiredType === tool) return;
     setPointRequiredType(objId, pointIndex, tool);
@@ -726,6 +729,7 @@ export default function BlueprintViewer() {
     : null;
   const isDrawingHotPipe = activeType === "hot_pipe" || activeType === "pipe";
   const isDrawingColdPipe = activeType === "cold_pipe";
+  const isDrawingDrainPipe = activeType === "drain_pipe";
   const isDrawingFixtureArea = activeType === "fixture_area";
   const isDrawingConnection = activeType === "connection";
   const activePointTool =
@@ -741,7 +745,7 @@ export default function BlueprintViewer() {
     setActiveToolGroup(group);
     if (
       group === "plumbing" &&
-      !["hot_pipe", "cold_pipe", "fixture_area", ...POINT_TOOL_TYPES].includes(activePlumbingTool)
+      !["hot_pipe", "cold_pipe", "drain_pipe", "fixture_area", ...POINT_TOOL_TYPES].includes(activePlumbingTool)
     ) {
       setActivePlumbingTool("hot_pipe");
     }
@@ -749,7 +753,7 @@ export default function BlueprintViewer() {
 
   useEffect(() => {
     if (!activeType) return;
-    if (["pipe", "hot_pipe", "cold_pipe", "fixture_area"].includes(activeType)) {
+    if (["pipe", "hot_pipe", "cold_pipe", "drain_pipe", "fixture_area"].includes(activeType)) {
       setActiveToolGroup("plumbing");
       setActivePlumbingTool(activeType);
       return;
@@ -1007,6 +1011,21 @@ export default function BlueprintViewer() {
                     </button>
 
                     <button
+                      className={`btn-secondary draw-btn drain-pipe-btn${isDrawingDrainPipe ? " active" : ""}`}
+                      onClick={() => {
+                        setActivePlumbingTool("drain_pipe");
+                        isDrawingDrainPipe
+                          ? cancelActiveDrawing()
+                          : startDrawing("drain_pipe");
+                      }}
+                      disabled={!blueprintImage}
+                      title="Select drainage pipe tool"
+                    >
+                      <span className="draw-icon drain-pipe-icon" />
+                      {isDrawingDrainPipe ? "Cancel Drain Pipe" : "Drainage Pipe"}
+                    </button>
+
+                    <button
                       className={`btn-secondary draw-btn fixture-area-btn${isDrawingFixtureArea ? " active" : ""}`}
                       onClick={() => {
                         setActivePlumbingTool("fixture_area");
@@ -1116,7 +1135,7 @@ export default function BlueprintViewer() {
                       <>
                         No elements yet.
                         <br />
-                        Upload an image then choose a tool and draw hot/cold pipes or wires.
+                        Upload an image then choose a tool and draw hot/cold/drainage pipes or wires.
                       </>
                     ) : (
                       "Select a blueprint to view elements."
