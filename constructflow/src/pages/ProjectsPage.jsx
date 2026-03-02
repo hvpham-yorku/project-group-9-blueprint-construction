@@ -63,7 +63,25 @@ export default function ProjectsPage() {
         where("organizationId", "==", organizationId),
       );
       const snap = await getDocs(q);
-      const list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+      let list = snap.docs.map((d) => ({ id: d.id, ...d.data() }));
+
+      if (!isManager && userProfile?.uid) {
+        const taskQ = query(
+          collection(db, "tasks"),
+          where("assignedWorkerId", "==", userProfile.uid),
+        );
+        const taskSnap = await getDocs(taskQ);
+        const assignedProjectIds = new Set(
+          taskSnap.docs
+            .map((d) => d.data())
+            .filter((task) => task.organizationId === organizationId)
+            .map((task) => task.projectId)
+            .filter(Boolean),
+        );
+
+        list = list.filter((project) => assignedProjectIds.has(project.id));
+      }
+
       list.sort(
         (a, b) =>
           (b.createdAt?.toMillis?.() || 0) - (a.createdAt?.toMillis?.() || 0),
@@ -77,7 +95,7 @@ export default function ProjectsPage() {
 
   useEffect(() => {
     fetchProjects();
-  }, [organizationId]);
+  }, [organizationId, isManager, userProfile?.uid]);
 
   // ── Create project ──────────────────────────────────────────────────────
   const handleCreate = async (e) => {

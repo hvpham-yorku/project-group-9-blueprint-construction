@@ -166,7 +166,6 @@ export default function TasksPage() {
                     type="text"
                     value={title}
                     onChange={(e) => setTitle(e.target.value)}
-                    placeholder="Install supply lines - East Wing"
                     required
                   />
                 </div>
@@ -206,7 +205,6 @@ export default function TasksPage() {
                 <textarea
                   value={description}
                   onChange={(e) => setDescription(e.target.value)}
-                  placeholder="Describe the work, location, and any requirements."
                   rows={4}
                   required
                 />
