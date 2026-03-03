@@ -55,7 +55,6 @@ vi.mock("react-icons/md", () => ({
   MdSettings: () => <span />,
   MdLogout: () => <span />,
   MdBusiness: () => <span />,
-  MdNotifications: () => <span />,
   MdPerson: () => <span />,
   MdAssignment: () => <span />,
   MdSchedule: () => <span />,
