@@ -65,11 +65,15 @@
   justify-content: center;
   width: 56px;
   height: 56px;
-  background: #1e3a8a;
-  border-radius: 14px;
+  background: transparent;
+  border-radius: 0;
   margin: 0 auto 16px;
-  font-size: 28px;
-  color: #fff;
+}
+
+.modal-logo-image {
+  width: 56px;
+  height: 56px;
+  object-fit: contain;
 }
 
 .modal-header h2 {

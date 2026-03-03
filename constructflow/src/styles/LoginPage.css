@@ -56,12 +56,16 @@
   justify-content: center;
   width: 64px;
   height: 64px;
-  background: #1e3a8a;
-  border-radius: 18px;
+  background: transparent;
+  border-radius: 0;
   margin-bottom: 16px;
-  font-size: 32px;
-  color: #fff;
-  box-shadow: 0 8px 24px rgba(30, 58, 138, 0.35);
+  box-shadow: none;
+}
+
+.login-brand-logo {
+  width: 64px;
+  height: 64px;
+  object-fit: contain;
 }
 
 .login-brand h1 {
