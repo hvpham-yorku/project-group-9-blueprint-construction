@@ -2,7 +2,7 @@
  * ManagerDashboard.jsx
  *
  * Landing page for the organisation manager.
- * Shows live stats (projects, workers, invite code) and quick links.
+ * Shows live stats (projects, workers, invite code) and recent projects.
  */
 
 import { useState, useEffect } from "react";
@@ -12,8 +12,6 @@ import {
   MdEngineering,
   MdConstruction,
   MdArrowForward,
-  // MdBarChart,
-  MdSettings,
 } from "react-icons/md";
 import Header from "../components/Header";
 import Sidebar from "../components/Sidebar";
@@ -225,52 +223,6 @@ export default function ManagerDashboard() {
             )}
           </div>
 
-          {/* ── Quick Actions ── */}
-          <div className="section">
-            <div className="section-header">
-              <h2>Quick Actions</h2>
-            </div>
-            <div className="quick-actions">
-              <button
-                className="action-btn"
-                onClick={() => navigate("/projects")}
-              >
-                <span className="action-icon">
-                  <MdFolder />
-                </span>
-                <span>Manage Projects</span>
-              </button>
-              <button
-                className="action-btn"
-                onClick={() => navigate("/workers")}
-              >
-                <span className="action-icon">
-                  <MdEngineering />
-                </span>
-                <span>View Workers</span>
-              </button>
-              {/*
-              <button
-                className="action-btn"
-                onClick={() => navigate("/reports")}
-              >
-                <span className="action-icon">
-                  <MdBarChart />
-                </span>
-                <span>Reports</span>
-              </button>
-              */}
-              <button
-                className="action-btn"
-                onClick={() => navigate("/settings")}
-              >
-                <span className="action-icon">
-                  <MdSettings />
-                </span>
-                <span>Settings</span>
-              </button>
-            </div>
-          </div>
         </div>
       </div>
     </div>

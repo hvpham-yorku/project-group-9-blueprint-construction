@@ -253,44 +253,6 @@
   border: 1px solid #e2e8f0;
 }
 
-/* ── Quick Actions ──────────────────────────────────────────────── */
-.quick-actions {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(160px, 1fr));
-  gap: 14px;
-}
-
-.action-btn {
-  display: flex;
-  flex-direction: column;
-  align-items: center;
-  gap: 10px;
-  padding: 22px 16px;
-  background: #fff;
-  border: 1.5px solid #e2e8f0;
-  border-radius: 14px;
-  cursor: pointer;
-  transition: all 0.2s;
-  font-size: 13px;
-  font-weight: 600;
-  color: #4a5568;
-}
-
-.action-btn:hover {
-  border-color: #1e3a8a;
-  color: #1e3a8a;
-  transform: translateY(-2px);
-  box-shadow: 0 6px 16px rgba(30, 58, 138, 0.15);
-}
-
-.action-icon {
-  display: flex;
-  align-items: center;
-  justify-content: center;
-  font-size: 26px;
-  color: #1e3a8a;
-}
-
 /* ── Buttons ────────────────────────────────────────────────────── */
 .btn-primary {
   padding: 10px 22px;
