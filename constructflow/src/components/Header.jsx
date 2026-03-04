@@ -3,8 +3,7 @@
  *
  * Top navigation header component displayed across all pages. Shows the current page title,
  * and user authentication status. When logged out, displays
- * a user icon that opens the authentication modal. When logged in, shows user avatar with
- * email and logout option. Integrates with Firebase authentication.
+ * a user icon that opens the authentication modal. Integrates with Firebase authentication.
  */
 
 import { useState } from "react";
@@ -15,21 +14,13 @@ import "../styles/Header.css";
 
 function Header({ title, role }) {
   const [showAuthModal, setShowAuthModal] = useState(false);
-  const { currentUser, logout } = useAuth();
+  const { currentUser } = useAuth();
 
   const handleUserClick = () => {
     if (currentUser) {
       // Show user menu dropdown (future implementation)
     } else {
       setShowAuthModal(true);
-    }
-  };
-
-  const handleLogout = async () => {
-    try {
-      await logout();
-    } catch (error) {
-      console.error("Failed to log out:", error);
     }
   };
 
@@ -40,19 +31,7 @@ function Header({ title, role }) {
           <h1>{title}</h1>
         </div>
         <div className="header-right">
-          {currentUser ? (
-            <div className="user-menu">
-              <div className="user-avatar">
-                {currentUser.email?.[0].toUpperCase() || "U"}
-              </div>
-              <div className="user-info">
-                <span className="user-email">{currentUser.email}</span>
-                <button onClick={handleLogout} className="logout-btn">
-                  Logout
-                </button>
-              </div>
-            </div>
-          ) : (
+          {!currentUser && (
             <button
               className="user-icon-btn"
               onClick={handleUserClick}
