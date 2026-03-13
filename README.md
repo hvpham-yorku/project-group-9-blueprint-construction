@@ -19,6 +19,10 @@ Blueprint is used as a helper for the tasks assigned, rather than it serving as 
 
 [Peer evaluation form](deliverables/EECS2311Z-Delivery1-PeerReview-Group9.pdf) is in the `deliverables` folder.  
 
+### ITR2
+
+Updated user stories: [ITR2-user-stories](deliverables/ITR2-user-stories.pdf)
+
 ---
 
 # ConstructFlow

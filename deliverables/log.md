@@ -45,3 +45,8 @@ Meeting lasted **1 hour**.
 - Made final changes to the project for presentation
 - Worked on the presentation slides
 - Worked on the peer review form
+
+### Mar 12, 2026
+
+Meeting lasted **18 minutes**.
+- Planned out ITR2 user stories, will meet tomorrow to finalize
