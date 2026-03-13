@@ -50,3 +50,13 @@ Meeting lasted **1 hour**.
 
 Meeting lasted **18 minutes**.
 - Planned out ITR2 user stories, will meet tomorrow to finalize
+
+### Mar 13, 2026
+
+Meeting lasted **31 minutes**.
+- Distributed work based on user stories 
+
+Things to implement:
+- Materials tracking
+- Workers time tracking
+- Project progress tracking
